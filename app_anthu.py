@@ -452,6 +452,11 @@ with tab1:
         # 布鲁克映射
         brk_matrix = bruker_csv_to_unified(brk_df, unified_mz, tolerance)
         brk_out = pd.DataFrame(brk_matrix, columns=unified_cols)
+
+        # ── TIC 归一化：每行 / 行总和 → 和安图一致（比例含义） ──
+        brk_rowsum = brk_out[unified_cols].sum(axis=1)
+        brk_out[unified_cols] = brk_out[unified_cols].div(brk_rowsum.replace(0, np.nan), axis=0).fillna(0)
+
         brk_out.insert(0, 'sample',
                        brk_df['group'].astype(str).values if 'group' in brk_df.columns
                        else [f"bruker_{i}" for i in range(len(brk_df))])
@@ -497,6 +502,17 @@ with tab1:
         c1.metric("布鲁克样本数", len(brk_out))
         c2.metric("安图样本数",  len(atu_out))
         c3.metric("安图菌株数",  len(set(extract_strain_id(fn) for fn, _ in all_anthu_peaks)))
+
+        # ── TIC 归一化验证 ──
+        st.divider()
+        st.markdown("### 📊 TIC 归一化验证（两种仪器强度已对齐）")
+        brk_final_rowsum = brk_out[unified_cols].sum(axis=1)
+        atu_final_rowsum = atu_out[unified_cols].sum(axis=1)
+        nc1, nc2 = st.columns(2)
+        nc1.metric("布鲁克 行总和", f"{brk_final_rowsum.mean():.4f}",
+                   help="归一化后每行和=1，表示各峰占本样本总信号的比例")
+        nc2.metric("安图   行总和", f"{atu_final_rowsum.mean():.4f}",
+                   help="和布鲁克同一基准，直接可比")
 
         # ── 菌株筛选报告 ──
         st.divider()
